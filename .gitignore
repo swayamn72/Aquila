@@ -1,0 +1,56 @@
+# ── Build outputs ─────────────────────────────────────────────
+build/
+out/
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
+*.obj
+*.o
+*.a
+
+# ── CMake generated files ──────────────────────────────────────
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# ── Generated data files (can be regenerated with gen_data) ───
+data_large.csv
+
+# ── Report output (regenerated each run) ──────────────────────
+report.json
+
+# ── Personal internal documentation (gitignored intentionally) ─
+INTERNALS.md
+
+# ── IDE and editor files ───────────────────────────────────────
+.vs/
+.vscode/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+compile_commands.json
+
+# ── Windows system files ───────────────────────────────────────
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ── macOS system files ─────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Profiler and perf outputs ──────────────────────────────────
+*.perf
+*.vsp
+*.psess
+gmon.out
+perf.data

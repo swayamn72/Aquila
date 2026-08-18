@@ -1,0 +1,46 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (max optimization)",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug (ASan + UBSan)",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "bench",
+      "displayName": "Benchmark (Release + debug symbols)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "AQUILA_BENCH": "ON"
+      }
+    },
+    {
+      "name": "msvc-release",
+      "displayName": "MSVC Release",
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release",      "configurePreset": "release" },
+    { "name": "debug",        "configurePreset": "debug" },
+    { "name": "bench",        "configurePreset": "bench" },
+    { "name": "msvc-release", "configurePreset": "msvc-release" }
+  ]
+}
