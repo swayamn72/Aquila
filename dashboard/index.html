@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aquila — Backtest Dashboard</title>
+  <meta name="description" content="Aquila low-latency backtesting engine — real-time performance analytics dashboard" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:    #080d18;
+      --bg-card:    #0d1525;
+      --bg-card2:   #111c30;
+      --border:     rgba(56, 139, 253, 0.18);
+      --border-h:   rgba(56, 189, 248, 0.45);
+      --blue:       #38bdf8;
+      --blue-dim:   #1e7fb0;
+      --cyan:       #06e8e8;
+      --green:      #22d3a0;
+      --red:        #f43f5e;
+      --text-1:     #e2eaf6;
+      --text-2:     #8ba0be;
+      --text-3:     #4a6080;
+      --font:       'Inter', sans-serif;
+      --mono:       'JetBrains Mono', monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg-base); color: var(--text-1); font-family: var(--font); }
+
+    /* ─── Scrollbar ─────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ─── Nav ───────────────────────────────────────────── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; height: 58px;
+      background: rgba(13, 21, 37, 0.85);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-logo {
+      font-size: 20px; font-weight: 700; letter-spacing: 0.12em;
+      color: var(--blue);
+      text-shadow: 0 0 24px rgba(56,189,248,0.55);
+    }
+    .nav-logo span { color: var(--text-2); font-weight: 400; font-size: 13px; margin-left: 12px; letter-spacing: 0.02em; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .badge {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em; padding: 3px 10px;
+      border-radius: 99px; border: 1px solid;
+    }
+    .badge-live  { border-color: var(--green); color: var(--green); }
+    .badge-strat { border-color: var(--border); color: var(--text-2); font-family: var(--mono); }
+    #strat-badge { transition: all .3s; }
+
+    /* ─── Upload zone ────────────────────────────────────── */
+    #upload-zone {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: calc(100vh - 58px);
+      gap: 20px; cursor: pointer;
+      transition: background .2s;
+    }
+    #upload-zone:hover { background: rgba(56,189,248,0.03); }
+    #upload-zone svg { opacity: .35; }
+    .upload-title { font-size: 22px; font-weight: 600; color: var(--text-1); }
+    .upload-sub   { font-size: 14px; color: var(--text-2); }
+    .upload-btn {
+      margin-top: 8px; padding: 10px 28px;
+      background: rgba(56,189,248,0.1); border: 1px solid var(--border-h);
+      color: var(--blue); border-radius: 8px; font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all .2s;
+    }
+    .upload-btn:hover { background: rgba(56,189,248,0.2); }
+    #file-input { display: none; }
+
+    /* ─── Dashboard ──────────────────────────────────────── */
+    #dashboard { display: none; padding: 24px 28px 40px; max-width: 1600px; margin: 0 auto; }
+
+    /* ─── Metrics row ────────────────────────────────────── */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 20px;
+    }
+    @media (max-width: 900px) { .metrics-row { grid-template-columns: repeat(2, 1fr); } }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 20px;
+      position: relative; overflow: hidden;
+      transition: border-color .25s, transform .2s;
+    }
+    .metric-card:hover { border-color: var(--border-h); transform: translateY(-2px); }
+    .metric-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent, var(--blue)), transparent);
+      opacity: .7;
+    }
+    .metric-label { font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--text-3); text-transform: uppercase; margin-bottom: 10px; }
+    .metric-value { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--text-1); line-height: 1; }
+    .metric-value.pos { color: var(--green); }
+    .metric-value.neg { color: var(--red); }
+    .metric-sub   { font-size: 12px; color: var(--text-3); margin-top: 6px; font-family: var(--mono); }
+
+    /* ─── Main grid ──────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto auto;
+      gap: 20px;
+    }
+    @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 22px 24px;
+      transition: border-color .25s;
+    }
+    .card:hover { border-color: var(--border-h); }
+    .card-title {
+      font-size: 12px; font-weight: 600; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-title-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--blue); box-shadow: 0 0 8px var(--blue);
+    }
+
+    /* ─── Canvas charts ──────────────────────────────────── */
+    canvas { display: block; width: 100% !important; }
+    #equity-canvas { height: 260px; }
+    #latency-canvas { height: 220px; }
+
+    /* ─── Trade log ──────────────────────────────────────── */
+    .trade-card { grid-column: 1 / -1; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      text-align: left; padding: 10px 14px;
+      font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text-3); border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid rgba(56,139,253,0.07); transition: background .15s; }
+    tbody tr:hover { background: rgba(56,189,248,0.04); }
+    tbody td { padding: 11px 14px; font-family: var(--mono); color: var(--text-2); }
+    tbody td:first-child { color: var(--text-3); font-size: 12px; }
+    .pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      padding: 2px 9px; border-radius: 99px; min-width: 44px;
+    }
+    .pill-buy  { background: rgba(34,211,160,.15); color: var(--green); border: 1px solid rgba(34,211,160,.35); }
+    .pill-sell { background: rgba(244,63,94,.15);  color: var(--red);   border: 1px solid rgba(244,63,94,.35); }
+
+    /* ─── Latency details row ────────────────────────────── */
+    .lat-row { display: flex; justify-content: space-between; margin-top: 18px; gap: 8px; flex-wrap: wrap; }
+    .lat-chip {
+      text-align: center; flex: 1; min-width: 50px;
+      background: var(--bg-card2); border-radius: 8px; padding: 8px 4px;
+    }
+    .lat-chip-label { font-size: 9px; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; }
+    .lat-chip-val   { font-size: 14px; font-weight: 600; font-family: var(--mono); color: var(--cyan); margin-top: 4px; }
+
+    /* ─── Spinner ────────────────────────────────────────── */
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--blue); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Pulse dot ──────────────────────────────────────── */
+    .pulse { display: inline-flex; align-items: center; gap: 6px; }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(34,211,160,.5)} 50%{box-shadow:0 0 0 5px rgba(34,211,160,0)} }
+
+    /* ─── Animations ─────────────────────────────────────── */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+    .fade-up { animation: fadeUp .45s ease both; }
+    .delay-1 { animation-delay: .05s; }
+    .delay-2 { animation-delay: .10s; }
+    .delay-3 { animation-delay: .15s; }
+    .delay-4 { animation-delay: .20s; }
+
+    /* ─── Empty state ─────────────────────────────────────── */
+    .empty { text-align: center; color: var(--text-3); padding: 32px 0; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────── -->
+<nav>
+  <div class="nav-logo">
+    AQUILA
+    <span>Backtest Dashboard</span>
+  </div>
+  <div class="nav-right">
+    <span class="badge badge-strat" id="strat-badge">—</span>
+    <span class="badge badge-live pulse">
+      <span class="pulse-dot"></span>LIVE
+    </span>
+  </div>
+</nav>
+
+<!-- ── Upload zone ──────────────────────────────────────────── -->
+<div id="upload-zone" onclick="document.getElementById('file-input').click()">
+  <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.5">
+    <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5 5 5M12 5v11"/>
+  </svg>
+  <div class="upload-title">Drop your report.json here</div>
+  <div class="upload-sub">Run the engine with <code style="color:var(--blue);font-family:var(--mono)">--bench</code> flag to generate the report</div>
+  <button class="upload-btn">Select report.json</button>
+  <input type="file" id="file-input" accept=".json" />
+</div>
+
+<!-- ── Dashboard ────────────────────────────────────────────── -->
+<div id="dashboard">
+
+  <!-- Metrics row -->
+  <div class="metrics-row">
+    <div class="metric-card fade-up delay-1" style="--accent:#38bdf8">
+      <div class="metric-label">Total Return</div>
+      <div class="metric-value" id="m-return">—</div>
+      <div class="metric-sub" id="m-bars">— bars</div>
+    </div>
+    <div class="metric-card fade-up delay-2" style="--accent:#06e8e8">
+      <div class="metric-label">Sharpe Ratio</div>
+      <div class="metric-value" id="m-sharpe">—</div>
+      <div class="metric-sub">Sortino: <span id="m-sortino">—</span></div>
+    </div>
+    <div class="metric-card fade-up delay-3" style="--accent:#f43f5e">
+      <div class="metric-label">Max Drawdown</div>
+      <div class="metric-value neg" id="m-mdd">—</div>
+      <div class="metric-sub">Calmar: <span id="m-calmar">—</span></div>
+    </div>
+    <div class="metric-card fade-up delay-4" style="--accent:#22d3a0">
+      <div class="metric-label">Win Rate</div>
+      <div class="metric-value" id="m-wr">—</div>
+      <div class="metric-sub">PF: <span id="m-pf">—</span> · Trades: <span id="m-trades">—</span></div>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- Equity curve -->
+    <div class="card fade-up">
+      <div class="card-title"><span class="card-title-dot"></span>Equity Curve</div>
+      <canvas id="equity-canvas" height="260"></canvas>
+    </div>
+
+    <!-- Latency histogram -->
+    <div class="card fade-up">
+      <div class="card-title"><span class="card-title-dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan)"></span>TSC Latency Profile</div>
+      <canvas id="latency-canvas" height="220"></canvas>
+      <div class="lat-row">
+        <div class="lat-chip"><div class="lat-chip-label">mean</div><div class="lat-chip-val" id="l-mean">—</div></div>
+        <div class="lat-chip"><div class="lat-chip-label">p50</div><div class="lat-chip-val" id="l-p50">—</div></div>
+        <div class="lat-chip"><div class="lat-chip-label">p95</div><div class="lat-chip-val" id="l-p95">—</div></div>
+        <div class="lat-chip"><div class="lat-chip-label">p99</div><div class="lat-chip-val" id="l-p99">—</div></div>
+      </div>
+    </div>
+
+    <!-- Trade log (spans full width) -->
+    <div class="card trade-card fade-up">
+      <div class="card-title"><span class="card-title-dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>Trade Log</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Type</th>
+              <th>Strategy</th>
+              <th>Total Bars</th>
+              <th>Total Return</th>
+              <th>Sharpe</th>
+              <th>Max Drawdown</th>
+              <th>Profit Factor</th>
+            </tr>
+          </thead>
+          <tbody id="trade-body">
+            <tr><td colspan="8" class="empty">No data — load a report.json</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Utility ───────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = (n, d=2) => (typeof n === 'number' ? n.toFixed(d) : '—');
+const fmtNs = ns => ns >= 1000 ? (ns/1000).toFixed(1)+'μs' : ns+'ns';
+
+// ── File input ────────────────────────────────────────────────
+$('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { render(JSON.parse(ev.target.result)); }
+    catch { alert('Invalid JSON — make sure this is a report.json from Aquila.'); }
+  };
+  reader.readAsText(file);
+});
+
+// Drag-and-drop
+const zone = $('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(56,189,248,0.06)'; });
+zone.addEventListener('dragleave', () => { zone.style.background = ''; });
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.style.background = '';
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { render(JSON.parse(ev.target.result)); }
+    catch { alert('Invalid JSON'); }
+  };
+  reader.readAsText(file);
+});
+
+// ── Main render ───────────────────────────────────────────────
+function render(d) {
+  zone.style.display = 'none';
+  const dash = $('dashboard');
+  dash.style.display = 'block';
+
+  // Strategy badge
+  $('strat-badge').textContent = d.strategy || 'Unknown';
+
+  // Metrics
+  const ret = d.total_return_pct ?? 0;
+  $('m-return').textContent  = (ret >= 0 ? '+' : '') + fmt(ret) + '%';
+  $('m-return').className    = 'metric-value ' + (ret >= 0 ? 'pos' : 'neg');
+  $('m-bars').textContent    = (d.total_bars ?? '—') + ' bars · ' + (d.total_trades ?? '—') + ' trades';
+  $('m-sharpe').textContent  = fmt(d.sharpe_ratio);
+  $('m-sortino').textContent = fmt(d.sortino_ratio);
+  $('m-mdd').textContent     = fmt(d.max_drawdown_pct) + '%';
+  $('m-calmar').textContent  = fmt(d.calmar_ratio);
+  $('m-wr').textContent      = fmt(d.win_rate_pct) + '%';
+  $('m-wr').className        = 'metric-value ' + (d.win_rate_pct >= 50 ? 'pos' : 'neg');
+  $('m-pf').textContent      = fmt(d.profit_factor);
+  $('m-trades').textContent  = d.total_trades ?? '—';
+
+  // Latency
+  $('l-mean').textContent = d.lat_mean_ns ? fmtNs(d.lat_mean_ns) : 'n/a';
+  $('l-p50').textContent  = d.lat_p50_ns  ? fmtNs(d.lat_p50_ns)  : 'n/a';
+  $('l-p95').textContent  = d.lat_p95_ns  ? fmtNs(d.lat_p95_ns)  : 'n/a';
+  $('l-p99').textContent  = d.lat_p99_ns  ? fmtNs(d.lat_p99_ns)  : 'n/a';
+
+  // Trade log (uses report fields as a summary row since we don't have per-trade data)
+  const tbody = $('trade-body');
+  tbody.innerHTML = '';
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td>1</td>
+    <td><span class="pill ${(ret >= 0) ? 'pill-buy' : 'pill-sell'}">${ret >= 0 ? 'PROFIT' : 'LOSS'}</span></td>
+    <td>${d.strategy ?? '—'}</td>
+    <td>${d.total_bars ?? '—'}</td>
+    <td style="color:${ret >= 0 ? 'var(--green)' : 'var(--red)'}">${(ret >= 0 ? '+' : '') + fmt(ret)}%</td>
+    <td>${fmt(d.sharpe_ratio)}</td>
+    <td style="color:var(--red)">${fmt(d.max_drawdown_pct)}%</td>
+    <td>${fmt(d.profit_factor)}</td>
+  `;
+  tbody.appendChild(row);
+
+  drawEquity(d.equity_curve_sample ?? []);
+  drawLatency(d);
+}
+
+// ── Equity curve canvas ───────────────────────────────────────
+function drawEquity(data) {
+  const canvas = $('equity-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 48;
+  const H = 260;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  if (!data.length) { ctx.fillStyle = '#4a6080'; ctx.font = '13px Inter'; ctx.fillText('No equity curve data', W/2 - 70, H/2); return; }
+
+  const PAD = { top: 16, right: 16, bottom: 40, left: 70 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const minV = Math.min(...data);
+  const maxV = Math.max(...data);
+  const range = maxV - minV || 1;
+
+  const xs = i => PAD.left + (i / (data.length - 1)) * cW;
+  const ys = v => PAD.top + cH - ((v - minV) / range) * cH;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(56,139,253,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (cH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
+    const val = maxV - (range / 4) * i;
+    ctx.fillStyle = '#4a6080'; ctx.font = '10px JetBrains Mono';
+    ctx.fillText('$' + Math.round(val).toLocaleString(), 4, y + 4);
+  }
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + cH);
+  grad.addColorStop(0,   'rgba(56,189,248,0.25)');
+  grad.addColorStop(1,   'rgba(56,189,248,0.00)');
+  ctx.beginPath();
+  ctx.moveTo(xs(0), ys(data[0]));
+  data.forEach((v, i) => {
+    if (i === 0) return;
+    const px = xs(i-1), py = ys(data[i-1]), cx = xs(i), cy = ys(v);
+    const cpx = (px + cx) / 2;
+    ctx.bezierCurveTo(cpx, py, cpx, cy, cx, cy);
+  });
+  ctx.lineTo(xs(data.length-1), PAD.top + cH);
+  ctx.lineTo(xs(0), PAD.top + cH);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xs(0), ys(data[0]));
+  data.forEach((v, i) => {
+    if (i === 0) return;
+    const px = xs(i-1), py = ys(data[i-1]), cx = xs(i), cy = ys(v);
+    const cpx = (px + cx) / 2;
+    ctx.bezierCurveTo(cpx, py, cpx, cy, cx, cy);
+  });
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(56,189,248,0.5)'; ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // End dot
+  const lx = xs(data.length-1), ly = ys(data[data.length-1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#38bdf8'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // X-axis labels
+  ctx.fillStyle = '#4a6080'; ctx.font = '10px JetBrains Mono';
+  const steps = Math.min(6, data.length - 1);
+  for (let i = 0; i <= steps; i++) {
+    const idx = Math.round(i * (data.length-1) / steps);
+    ctx.fillText('Bar ' + idx, xs(idx) - 14, H - 10);
+  }
+}
+
+// ── Latency bar chart ─────────────────────────────────────────
+function drawLatency(d) {
+  const canvas = $('latency-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 48;
+  const H = 220;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const bars = [
+    { label: 'p50',   val: d.lat_p50_ns ?? 0 },
+    { label: 'p95',   val: d.lat_p95_ns ?? 0 },
+    { label: 'p99',   val: d.lat_p99_ns ?? 0 },
+    { label: 'mean',  val: d.lat_mean_ns ?? 0 },
+  ].filter(b => b.val > 0);
+
+  if (!bars.length) {
+    ctx.fillStyle = '#4a6080'; ctx.font = '13px Inter';
+    ctx.fillText('Run with --bench flag to capture latency data', 20, H/2); return;
+  }
+
+  const PAD = { top: 16, right: 16, bottom: 36, left: 16 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const maxV = Math.max(...bars.map(b => b.val));
+  const barW = (cW / bars.length) * 0.55;
+  const gap  = cW / bars.length;
+
+  bars.forEach((b, i) => {
+    const x = PAD.left + gap * i + (gap - barW) / 2;
+    const bh = (b.val / maxV) * cH;
+    const y  = PAD.top + cH - bh;
+
+    // Gradient bar
+    const g = ctx.createLinearGradient(0, y, 0, PAD.top + cH);
+    g.addColorStop(0, 'rgba(6,232,232,0.9)');
+    g.addColorStop(1, 'rgba(6,232,232,0.2)');
+    ctx.fillStyle = g;
+    const r = Math.min(6, barW/2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + barW - r, y);
+    ctx.arcTo(x + barW, y, x + barW, y + r, r);
+    ctx.lineTo(x + barW, PAD.top + cH);
+    ctx.lineTo(x, PAD.top + cH);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+    ctx.fill();
+
+    // Glow
+    ctx.shadowColor = 'rgba(6,232,232,0.4)'; ctx.shadowBlur = 12;
+    ctx.fill(); ctx.shadowBlur = 0;
+
+    // Value label
+    ctx.fillStyle = '#06e8e8'; ctx.font = '600 11px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(fmtNs(b.val), x + barW/2, y - 6);
+
+    // Label
+    ctx.fillStyle = '#4a6080'; ctx.font = '10px JetBrains Mono';
+    ctx.fillText(b.label, x + barW/2, H - 10);
+    ctx.textAlign = 'left';
+  });
+}
+
+// ── Auto-load demo if report.json exists in same folder ───────
+// (Only works when served via a local HTTP server, not file://)
+(async () => {
+  try {
+    const r = await fetch('./report.json');
+    if (r.ok) render(await r.json());
+  } catch {}
+})();
+</script>
+</body>
+</html>

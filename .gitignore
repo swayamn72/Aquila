@@ -1,4 +1,5 @@
 # ── Build outputs ─────────────────────────────────────────────
+# NOTE: dashboard/ is intentionally tracked (not ignored)
 build/
 out/
 *.exe
