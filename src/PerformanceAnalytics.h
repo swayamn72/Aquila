@@ -30,10 +30,19 @@
 
 namespace Aquila {
 
+struct TradeRecord {
+    std::size_t bar_index;
+    bool is_buy;
+    double price;
+    double qty;
+};
+
 struct BacktestReport {
     std::string strategy_name;
     std::size_t total_bars   = 0;
     int         total_trades = 0;
+
+    std::vector<TradeRecord> trades;
 
     // Quant metrics
     double total_return_pct = 0.0;

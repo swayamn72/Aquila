@@ -166,6 +166,7 @@ public:
         report.total_bars    = m_store.size();
         report.total_trades  = m_portfolio.total_trades();
         report.total_return_pct = m_portfolio.total_return_pct();
+        report.trades        = m_portfolio.trades();
 
         if (m_cfg.bench && m_profiler) {
             report.lat_mean_ns = static_cast<uint64_t>(m_profiler->mean_ns());

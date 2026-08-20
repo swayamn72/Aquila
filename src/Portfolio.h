@@ -11,7 +11,9 @@
 #include "EventArena.h"
 #include <unordered_map>
 #include <vector>
+#include <vector>
 #include <cstdint>
+#include "PerformanceAnalytics.h"
 
 namespace Aquila {
 
@@ -42,6 +44,7 @@ public:
     [[nodiscard]] double realized_pnl()       const noexcept { return m_realized_pnl; }
     [[nodiscard]] int    total_trades()       const noexcept { return m_total_trades; }
     [[nodiscard]] const std::vector<double>& equity_curve() const noexcept { return m_equity_curve; }
+    [[nodiscard]] const std::vector<TradeRecord>& trades()  const noexcept { return m_trades; }
 
 private:
     double m_cash;
@@ -53,6 +56,7 @@ private:
     std::unordered_map<uint64_t, Position> m_positions;
     std::unordered_map<uint64_t, double>   m_last_price;
     std::vector<double>                    m_equity_curve;
+    std::vector<TradeRecord>               m_trades;
 
     SPSCRingBuffer<Event*, 4096>* m_ring  = nullptr;
     EventArena*                   m_arena = nullptr;

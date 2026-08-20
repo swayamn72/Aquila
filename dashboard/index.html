@@ -281,16 +281,13 @@
             <tr>
               <th>#</th>
               <th>Type</th>
-              <th>Strategy</th>
-              <th>Total Bars</th>
-              <th>Total Return</th>
-              <th>Sharpe</th>
-              <th>Max Drawdown</th>
-              <th>Profit Factor</th>
+              <th>Bar Index</th>
+              <th>Price</th>
+              <th>Qty</th>
             </tr>
           </thead>
           <tbody id="trade-body">
-            <tr><td colspan="8" class="empty">No data — load a report.json</td></tr>
+            <tr><td colspan="5" class="empty">No data — load a report.json</td></tr>
           </tbody>
         </table>
       </div>
@@ -362,28 +359,32 @@ function render(d) {
   $('l-p95').textContent  = d.lat_p95_ns  ? fmtNs(d.lat_p95_ns)  : 'n/a';
   $('l-p99').textContent  = d.lat_p99_ns  ? fmtNs(d.lat_p99_ns)  : 'n/a';
 
-  // Trade log (uses report fields as a summary row since we don't have per-trade data)
+  // Trade log
   const tbody = $('trade-body');
   tbody.innerHTML = '';
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td>1</td>
-    <td><span class="pill ${(ret >= 0) ? 'pill-buy' : 'pill-sell'}">${ret >= 0 ? 'PROFIT' : 'LOSS'}</span></td>
-    <td>${d.strategy ?? '—'}</td>
-    <td>${d.total_bars ?? '—'}</td>
-    <td style="color:${ret >= 0 ? 'var(--green)' : 'var(--red)'}">${(ret >= 0 ? '+' : '') + fmt(ret)}%</td>
-    <td>${fmt(d.sharpe_ratio)}</td>
-    <td style="color:var(--red)">${fmt(d.max_drawdown_pct)}%</td>
-    <td>${fmt(d.profit_factor)}</td>
-  `;
-  tbody.appendChild(row);
+  if (d.trades && d.trades.length > 0) {
+    const showTrades = d.trades.slice(-50).reverse();
+    showTrades.forEach((tr, i) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${d.trades.length - i}</td>
+        <td><span class="pill ${tr.is_buy ? 'pill-buy' : 'pill-sell'}">${tr.is_buy ? 'BUY' : 'SELL'}</span></td>
+        <td>${tr.index}</td>
+        <td style="color:#e2eaf6">$${fmt(tr.price, 2)}</td>
+        <td style="color:#e2eaf6">${fmt(tr.qty, 4)}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  } else {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">No trades recorded</td></tr>`;
+  }
 
-  drawEquity(d.equity_curve_sample ?? []);
+  drawEquity(d.equity_curve_sample ?? [], d.trades ?? [], d.total_bars ?? 1);
   drawLatency(d);
 }
 
 // ── Equity curve canvas ───────────────────────────────────────
-function drawEquity(data) {
+function drawEquity(data, trades, totalBars) {
   const canvas = $('equity-canvas');
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.parentElement.clientWidth - 48;
@@ -450,6 +451,30 @@ function drawEquity(data) {
   ctx.shadowColor = 'rgba(56,189,248,0.5)'; ctx.shadowBlur = 8;
   ctx.stroke();
   ctx.shadowBlur = 0;
+
+  // Trade Markers
+  if (trades.length > 0 && totalBars > 1 && data.length > 1) {
+    trades.forEach(tr => {
+      // Map trade bar index to X coordinate
+      const x = PAD.left + (tr.index / (totalBars - 1)) * cW;
+      
+      // Interpolate Y value from the sampled equity curve
+      const sampleIdx = (tr.index / (totalBars - 1)) * (data.length - 1);
+      const idx0 = Math.floor(sampleIdx);
+      const idx1 = Math.min(idx0 + 1, data.length - 1);
+      const t = sampleIdx - idx0;
+      const val = data[idx0] * (1 - t) + data[idx1] * t;
+      const y = ys(val);
+
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = tr.is_buy ? '#22d3a0' : '#f43f5e'; // Green for buy, Red for sell
+      ctx.fill();
+      ctx.strokeStyle = '#080d18'; // Match background
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+  }
 
   // End dot
   const lx = xs(data.length-1), ly = ys(data[data.length-1]);

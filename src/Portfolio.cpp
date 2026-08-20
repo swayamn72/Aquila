@@ -70,9 +70,15 @@ void Portfolio::on_fill(const FillEvent& fill) {
         if (pos.quantity <= 0.0) { pos.quantity = 0.0; pos.avg_cost = 0.0; }
         ++m_total_trades;
     }
-
     const double eq = current_equity();
     m_equity_curve.push_back(eq);
+
+    m_trades.push_back({
+        m_equity_curve.size() - 1, // index in the full equity curve
+        (fill.side == OrderSide::BUY),
+        fill.fill_price,
+        fill.quantity_filled
+    });
 
     std::cout << std::fixed << std::setprecision(2)
               << "[Portfolio] " << (fill.side == OrderSide::BUY ? "BUY " : "SELL")

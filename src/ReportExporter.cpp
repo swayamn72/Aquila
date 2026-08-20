@@ -39,6 +39,18 @@ void ReportExporter::write(const BacktestReport& r, const std::string& path) {
         f << eq[i];
         first = false;
     }
+    f << "],\n";
+
+    f << "  \"trades\": [";
+    first = true;
+    for (const auto& tr : r.trades) {
+        if (!first) f << ", ";
+        f << "{\"index\": " << tr.bar_index
+          << ", \"is_buy\": " << (tr.is_buy ? "true" : "false")
+          << ", \"price\": " << tr.price
+          << ", \"qty\": " << tr.qty << "}";
+        first = false;
+    }
     f << "]\n}\n";
 
     std::cout << "[Report] Written → " << path << "\n";
