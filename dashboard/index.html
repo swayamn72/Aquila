@@ -295,7 +295,16 @@
 
     <!-- Trade log (spans full width) -->
     <div class="card trade-card fade-up">
-      <div class="card-title"><span class="card-title-dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>Trade Log</div>
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-title-dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>
+          Trade Log
+        </div>
+        <button id="export-csv-btn" class="upload-btn" style="padding:6px 14px; font-size:11px; display:none; margin-top:0;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px; vertical-align:middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export CSV
+        </button>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -322,6 +331,7 @@
 const $ = id => document.getElementById(id);
 const fmt = (n, d=2) => (typeof n === 'number' ? n.toFixed(d) : '—');
 const fmtNs = ns => ns >= 1000 ? (ns/1000).toFixed(1)+'μs' : ns+'ns';
+let currentReportData = null;
 
 // ── File input ────────────────────────────────────────────────
 $('file-input').addEventListener('change', e => {
@@ -353,6 +363,7 @@ zone.addEventListener('drop', e => {
 
 // ── Main render ───────────────────────────────────────────────
 function render(d) {
+  currentReportData = d;
   zone.style.display = 'none';
   const dash = $('dashboard');
   dash.style.display = 'block';
@@ -399,6 +410,8 @@ function render(d) {
   } else {
     tbody.innerHTML = `<tr><td colspan="5" class="empty">No trades recorded</td></tr>`;
   }
+  
+  $('export-csv-btn').style.display = (d.trades && d.trades.length > 0) ? 'inline-block' : 'none';
 
   drawEquity(d.equity_curve_sample ?? [], d.trades ?? [], d.total_bars ?? 1);
   drawLatency(d);
@@ -584,6 +597,27 @@ function drawLatency(d) {
     ctx.textAlign = 'left';
   });
 }
+
+// ── CSV Export ────────────────────────────────────────────────
+$('export-csv-btn').addEventListener('click', () => {
+  if (!currentReportData || !currentReportData.trades || !currentReportData.trades.length) return;
+  
+  let csv = "Trade Index,Type,Price,Quantity\n";
+  currentReportData.trades.forEach(tr => {
+    csv += `${tr.index},${tr.is_buy ? 'BUY' : 'SELL'},${tr.price},${tr.qty}\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const stratName = currentReportData.strategy ? currentReportData.strategy.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'strategy';
+  a.download = `aquila_${stratName}_trades.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
 
 // ── Auto-load demo if report.json exists in same folder ───────
 // (Only works when served via a local HTTP server, not file://)
